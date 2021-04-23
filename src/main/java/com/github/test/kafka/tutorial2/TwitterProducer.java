@@ -1,5 +1,8 @@
 package com.github.test.kafka.tutorial2;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.twitter.hbc.ClientBuilder;
 import com.twitter.hbc.core.Client;
@@ -10,11 +13,14 @@ import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
 import com.twitter.hbc.core.processor.StringDelimitedProcessor;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
+import jdk.nashorn.internal.parser.JSONParser;
+import jdk.nashorn.internal.runtime.JSONFunctions;
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
@@ -31,11 +37,11 @@ public class TwitterProducer {
 
     public TwitterProducer(){}
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws JsonProcessingException {
         new TwitterProducer().run();
     }
 
-    public void run() {
+    public void run() throws JsonProcessingException {
 
         logger.info("Setup");
 
@@ -71,8 +77,11 @@ public class TwitterProducer {
             }
             if(msg != null)
             {
-                logger.info(msg);
-                producer.send(new ProducerRecord<>("twitter_tweets", null, msg), new Callback() {
+                String finalMsg = mountMessage(msg);
+                byte[] bytes = finalMsg.getBytes(StandardCharsets.US_ASCII);
+                String utf8EncodedString = new String(bytes, StandardCharsets.US_ASCII);
+                logger.info(finalMsg);
+                producer.send(new ProducerRecord<>("twitter_tweets", null, utf8EncodedString), new Callback() {
                     @Override
                     public void onCompletion(RecordMetadata recordMetadata, Exception e) {
                         if (e != null) {
@@ -115,7 +124,32 @@ public class TwitterProducer {
         properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
+        // create safe producer
+        properties.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        properties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
+        properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+
         // create the producer
         return new KafkaProducer<String, String>(properties);
+    }
+
+    private String mountMessage(String msg) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode jsonNodeRoot = objectMapper.readTree(msg);
+        String message = getNodeValue(jsonNodeRoot, "text", null);
+        String name = getNodeValue(jsonNodeRoot, "user", "name");
+        return name + ": " + message;
+    }
+
+    private String getNodeValue(JsonNode rootNode, String nodeKey, String nodeKey2) {
+        JsonNode jsonNodeInitial = rootNode.get(nodeKey);
+        JsonNode finalJsonNode;
+        if(nodeKey2!=null) {
+            finalJsonNode = jsonNodeInitial.get(nodeKey2);
+        } else {
+            finalJsonNode = jsonNodeInitial;
+        }
+        return finalJsonNode.asText();
     }
 }
