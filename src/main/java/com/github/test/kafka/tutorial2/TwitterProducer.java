@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 public class TwitterProducer {
     Logger logger = LoggerFactory.getLogger(TwitterProducer.class);
-    List<String> terms = Lists.newArrayList("Cruzeiro", "Potcker");
+    List<String> terms = Lists.newArrayList("Cruzeiro", "Copa do Brasil");
     String consumerKey = "MttnLifU1h2wJVFy3nHOls5Ep";
     String consumerSecret = "csEAXnkwtCnli8JEpgmpj95F7ANnkcuo2WxRLRH2zcZN4bu7cA";
     String token = "198128692-p5EDCV6V6NoYxHjrWETQ49X9kgs5xFDsNoYDvfi0";
@@ -124,6 +124,11 @@ public class TwitterProducer {
         properties.setProperty(ProducerConfig.ACKS_CONFIG, "all");
         properties.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
         properties.setProperty(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+
+        // high throughput producer (at the expense of a bit of latency and CPU usage)
+        properties.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+        properties.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        properties.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32*1024)); // 32 KB batch size
 
         // create the producer
         return new KafkaProducer<String, String>(properties);
