@@ -13,14 +13,11 @@ import com.twitter.hbc.core.endpoint.StatusesFilterEndpoint;
 import com.twitter.hbc.core.processor.StringDelimitedProcessor;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
-import jdk.nashorn.internal.parser.JSONParser;
-import jdk.nashorn.internal.runtime.JSONFunctions;
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
@@ -78,10 +75,8 @@ public class TwitterProducer {
             if(msg != null)
             {
                 String finalMsg = mountMessage(msg);
-                byte[] bytes = finalMsg.getBytes(StandardCharsets.US_ASCII);
-                String utf8EncodedString = new String(bytes, StandardCharsets.US_ASCII);
                 logger.info(finalMsg);
-                producer.send(new ProducerRecord<>("twitter_tweets", null, utf8EncodedString), new Callback() {
+                producer.send(new ProducerRecord<>("twitter_tweets", null, finalMsg), new Callback() {
                     @Override
                     public void onCompletion(RecordMetadata recordMetadata, Exception e) {
                         if (e != null) {
