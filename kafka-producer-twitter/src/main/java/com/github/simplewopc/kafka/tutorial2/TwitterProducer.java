@@ -1,4 +1,4 @@
-package kafka.tutorial2;
+package com.github.simplewopc.kafka.tutorial2;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;

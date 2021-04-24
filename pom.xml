@@ -4,13 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.github.test</groupId>
+    <groupId>com.github.simplewopc</groupId>
     <artifactId>kafka-beginners-course</artifactId>
     <packaging>pom</packaging>
     <version>1.0</version>
     <modules>
         <module>kafka-basics</module>
         <module>kafka-producer-twitter</module>
+        <module>kafka-consumer-elasticsearch</module>
     </modules>
 
     <dependencies>
