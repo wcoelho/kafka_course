@@ -14,8 +14,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
@@ -41,20 +42,34 @@ public class ElasticSearchConsumer {
             ConsumerRecords<String, String> records =
                     consumer.poll(Duration.ofMillis(100));
 
+            int recordsCount = records.count();
+
+            logger.info("Received: " + recordsCount + " records.");
+
+            BulkRequest bulkRequest = new BulkRequest();
+
             for (ConsumerRecord<String, String> record: records) {
 
                 String id = extractIdFromTweet(record.value());
+
+                if(id == null)
+                    continue;
+
                 // insert data into ElasticSearch
                 IndexRequest indexRequest = new IndexRequest("twitter")
-                        .source(record.value(), XContentType.JSON).id(id);
-                IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-                logger.info(indexResponse.getId());
+                        .source(record.value(), XContentType.JSON)
+                        .id(id); // unique ID makes the consumer idempotent
 
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
+                bulkRequest.add(indexRequest); // adding our bulk request (takes no time)
+            }
+
+            if (recordsCount > 0) {
+                BulkResponse bulkResponse = client.bulk(bulkRequest, RequestOptions.DEFAULT);
+                logger.info("Committing offsets...");
+                consumer.commitSync();
+                logger.info("Offsets have been committed");
+
+                sleep(1000);
             }
         }
 
@@ -66,13 +81,7 @@ public class ElasticSearchConsumer {
 
         String bootstrapServers =  "127.0.0.1:9092";
         String groupId = "kafka-demo-elasticsearch";
-        Properties properties = new Properties();
-
-        properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        Properties properties = getProperties(bootstrapServers, groupId);
 
         // create consumer
         KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(properties);
@@ -111,10 +120,32 @@ public class ElasticSearchConsumer {
         JsonNode jsonNodeRoot = null;
         try {
             jsonNodeRoot = objectMapper.readTree(tweetJson);
+            JsonNode jsonNode = jsonNodeRoot.get("id_str");
+            return jsonNode.asText();
         } catch (JsonProcessingException e) {
             e.printStackTrace();
+            return null;
         }
-        JsonNode jsonNode = jsonNodeRoot.get("id_str");
-        return jsonNode.asText();
+    }
+
+    private static Properties getProperties(String bootstrapServers, String groupId) {
+        Properties properties = new Properties();
+
+        properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false"); // disable auto commit of offset
+        properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "100");
+        return properties;
+    }
+
+    private static void sleep(int milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }

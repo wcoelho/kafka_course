@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 public class TwitterProducer {
     Logger logger = LoggerFactory.getLogger(TwitterProducer.class);
-    List<String> terms = Lists.newArrayList("Cruzeiro", "Copa do Brasil");
+    List<String> terms = Lists.newArrayList("Bolsonaro", "passeata");
     String consumerKey = "MttnLifU1h2wJVFy3nHOls5Ep";
     String consumerSecret = "csEAXnkwtCnli8JEpgmpj95F7ANnkcuo2WxRLRH2zcZN4bu7cA";
     String token = "198128692-p5EDCV6V6NoYxHjrWETQ49X9kgs5xFDsNoYDvfi0";
@@ -76,7 +76,7 @@ public class TwitterProducer {
             {
                 String finalMsg = mountMessage(msg);
                 logger.info(finalMsg);
-                producer.send(new ProducerRecord<>("twitter_tweets", null, finalMsg), new Callback() {
+                producer.send(new ProducerRecord<>("twitter_tweets", null, msg), new Callback() {
                     @Override
                     public void onCompletion(RecordMetadata recordMetadata, Exception e) {
                         if (e != null) {
