@@ -115,7 +115,6 @@ public class ElasticSearchConsumer {
     }
 
     private static String extractIdFromTweet(String tweetJson){
-        // gson library
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode jsonNodeRoot = null;
         try {
